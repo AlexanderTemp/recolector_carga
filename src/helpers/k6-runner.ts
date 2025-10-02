@@ -79,3 +79,5 @@ async function runScenarios() {
 }
 
 runScenarios();
+
+// npm run k6 1_registro_reclamo_sin_cd.js
