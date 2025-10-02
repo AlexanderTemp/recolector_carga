@@ -1,5 +1,3 @@
-import fs from "fs";
-
 type MetricType = "counter" | "gauge" | "rate" | "trend";
 type MetricContains = "data" | "time" | string;
 

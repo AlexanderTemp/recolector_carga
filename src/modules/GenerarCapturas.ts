@@ -30,8 +30,8 @@ export const generarPNGs = async (
           resumenTexto,
           folderOutput,
           jsonFile.name.replace(".json", ".png"),
-          folderName, // ← Agregar folderName
-          jsonFile.name // ← Agregar fileName
+          folderName,
+          jsonFile.name
         );
 
         console.log(
@@ -51,15 +51,15 @@ async function createK6StylePNG(
   text: string,
   outputDir: string,
   filename: string,
-  folderName: string, // ← Nuevo parámetro
-  fileName: string // ← Nuevo parámetro
+  folderName: string,
+  fileName: string
 ) {
   const lines = text.split("\n");
 
-  const fontSize = 14;
-  const lineHeight = 20;
-  const padding = 25;
-  const sectionSpacing = 8;
+  const fontSize = 12;
+  const lineHeight = 18;
+  const padding = 20;
+  const sectionSpacing = 6;
 
   const ctx = createCanvas(1, 1).getContext("2d");
   ctx.font = `${fontSize}px 'Courier New', monospace`;
@@ -71,9 +71,8 @@ async function createK6StylePNG(
     if (width > maxWidth) maxWidth = width;
   });
 
-  // Aumentar altura para incluir la información del archivo
-  const logoHeight = 100;
-  const infoHeight = 40; // Espacio para la información del archivo
+  const logoHeight = 80;
+  const infoHeight = 35;
   const width = Math.ceil(maxWidth) + padding * 2;
   const height =
     lines.length * lineHeight +
@@ -93,7 +92,6 @@ async function createK6StylePNG(
 
   drawK6AsciiLogo(context, width, padding);
 
-  // Dibujar información del archivo
   drawFileInfo(context, width, padding + logoHeight + 10, folderName, fileName);
 
   let currentY = padding + logoHeight + infoHeight + sectionSpacing * 2;
@@ -108,8 +106,14 @@ async function createK6StylePNG(
     currentY += lineHeight;
   });
 
-  const buffer = canvas.toBuffer("image/png");
-  fs.writeFileSync(path.join(outputDir, filename), buffer);
+  const pngBuffer = canvas.toBuffer("image/png", {
+    compressionLevel: 6,
+  });
+
+  fs.writeFileSync(path.join(outputDir, filename), pngBuffer);
+
+  const stats = fs.statSync(path.join(outputDir, filename));
+  console.log(`📊 Tamaño PNG: ${(stats.size / 1024).toFixed(2)} KB`);
 }
 
 function drawFileInfo(
@@ -122,23 +126,19 @@ function drawFileInfo(
   const folderText = `Prueba de carga: ${folderName}`;
   const fileText = `Escenario: ${fileName}`;
 
-  // Configurar estilo para la información del archivo
-  ctx.fillStyle = "#374151"; // Gris oscuro
-  ctx.font = "bold 12px 'Courier New', monospace";
+  ctx.fillStyle = "#374151";
+  ctx.font = "bold 11px 'Courier New', monospace";
 
-  // Calcular posición centrada
   const folderWidth = ctx.measureText(folderText).width;
   const fileWidth = ctx.measureText(fileText).width;
   const maxWidth = Math.max(folderWidth, fileWidth);
   const infoX = (canvasWidth - maxWidth) / 2;
 
-  // Dibujar información
   ctx.fillText(folderText, infoX, y);
-  ctx.fillText(fileText, infoX, y + 18);
+  ctx.fillText(fileText, infoX, y + 16);
 
-  // Línea separadora
-  ctx.fillStyle = "#e5e7eb"; // Gris claro
-  ctx.fillRect(infoX, y + 40, maxWidth, 1);
+  ctx.fillStyle = "#e5e7eb";
+  ctx.fillRect(infoX, y + 35, maxWidth, 1);
 }
 
 function drawK6AsciiLogo(ctx: any, canvasWidth: number, padding: number) {
@@ -152,47 +152,46 @@ function drawK6AsciiLogo(ctx: any, canvasWidth: number, padding: number) {
 
   const orangeColor = "#ff780a";
 
-  ctx.font = "bold 12px 'Courier New', monospace";
+  ctx.font = "bold 11px 'Courier New', monospace";
 
   const logoWidth = ctx.measureText(logoLines[0]).width;
   const logoX = (canvasWidth - logoWidth) / 2;
 
   logoLines.forEach((line, index) => {
     ctx.fillStyle = orangeColor;
-    ctx.fillText(line, logoX, padding + index * 16);
+    ctx.fillText(line, logoX, padding + index * 14);
   });
 
   ctx.fillStyle = "#666666";
-  ctx.font = "11px 'Courier New', monospace";
+  ctx.font = "10px 'Courier New', monospace";
   const versionText = "";
   const versionWidth = ctx.measureText(versionText).width;
   const versionX = (canvasWidth - versionWidth) / 2;
-  ctx.fillText(versionText, versionX, padding + 90);
+  ctx.fillText(versionText, versionX, padding + 75);
 }
 
-// Paleta moderna MODO DÍA - colores suaves pero legibles
 const ansiColors: { [key: string]: string } = {
-  "0": "#24292f", // reset - gris oscuro de GitHub
-  "1": "#0d1117", // bold - casi negro
-  "2": "#656d76", // faint - gris medio GitHub
-  "22": "#24292f", // reset bold
-  "30": "#24292f", // black
-  "31": "#cf222e", // red - rojo GitHub
-  "32": "#1a7f37", // green - verde GitHub
-  "33": "#9a6700", // yellow - amarillo GitHub
-  "34": "#0969da", // blue - azul GitHub
-  "35": "#8250df", // magenta - púrpura GitHub
-  "36": "#1b7c83", // cyan - cyan GitHub
-  "37": "#57606a", // white - gris GitHub
-  "39": "#24292f", // reset foreground
-  "90": "#656d76", // bright black (gray)
-  "91": "#a40e26", // bright red
-  "92": "#0f5323", // bright green
-  "93": "#7c4a03", // bright yellow
-  "94": "#0550ae", // bright blue
-  "95": "#6639ba", // bright magenta
-  "96": "#0f6f78", // bright cyan
-  "97": "#0d1117", // bright white
+  "0": "#24292f",
+  "1": "#0d1117",
+  "2": "#656d76",
+  "22": "#24292f",
+  "30": "#24292f",
+  "31": "#cf222e",
+  "32": "#1a7f37",
+  "33": "#9a6700",
+  "34": "#0969da",
+  "35": "#8250df",
+  "36": "#1b7c83",
+  "37": "#57606a",
+  "39": "#24292f",
+  "90": "#656d76",
+  "91": "#a40e26",
+  "92": "#0f5323",
+  "93": "#7c4a03",
+  "94": "#0550ae",
+  "95": "#6639ba",
+  "96": "#0f6f78",
+  "97": "#0d1117",
 };
 
 function drawANSIFormattedText(ctx: any, text: string, x: number, y: number) {

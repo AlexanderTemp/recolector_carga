@@ -1,0 +1,194 @@
+{
+  "options": {
+    "summaryTrendStats": [
+      "avg",
+      "min",
+      "med",
+      "max",
+      "p(90)",
+      "p(95)"
+    ],
+    "summaryTimeUnit": "",
+    "noColor": false
+  },
+  "state": {
+    "testRunDurationMs": 309.186782,
+    "isStdOutTTY": true,
+    "isStdErrTTY": true
+  },
+  "metrics": {
+    "data_received": {
+      "type": "counter",
+      "contains": "data",
+      "values": {
+        "rate": 21530.6746198484,
+        "count": 6657
+      }
+    },
+    "http_req_duration": {
+      "type": "trend",
+      "contains": "time",
+      "values": {
+        "avg": 301.901174,
+        "min": 301.901174,
+        "med": 301.901174,
+        "max": 301.901174,
+        "p(90)": 301.901174,
+        "p(95)": 301.901174
+      }
+    },
+    "http_req_connecting": {
+      "type": "trend",
+      "contains": "time",
+      "values": {
+        "med": 0.584527,
+        "max": 0.584527,
+        "p(90)": 0.584527,
+        "p(95)": 0.584527,
+        "avg": 0.584527,
+        "min": 0.584527
+      }
+    },
+    "http_req_failed": {
+      "type": "rate",
+      "contains": "default",
+      "values": {
+        "rate": 0,
+        "passes": 0,
+        "fails": 1
+      }
+    },
+    "http_req_sending": {
+      "type": "trend",
+      "contains": "time",
+      "values": {
+        "p(95)": 0.23878,
+        "avg": 0.23878,
+        "min": 0.23878,
+        "med": 0.23878,
+        "max": 0.23878,
+        "p(90)": 0.23878
+      }
+    },
+    "http_req_duration{expected_response:true}": {
+      "type": "trend",
+      "contains": "time",
+      "values": {
+        "avg": 301.901174,
+        "min": 301.901174,
+        "med": 301.901174,
+        "max": 301.901174,
+        "p(90)": 301.901174,
+        "p(95)": 301.901174
+      }
+    },
+    "iteration_duration": {
+      "type": "trend",
+      "contains": "time",
+      "values": {
+        "max": 309.054757,
+        "p(90)": 309.054757,
+        "p(95)": 309.054757,
+        "avg": 309.054757,
+        "min": 309.054757,
+        "med": 309.054757
+      }
+    },
+    "http_reqs": {
+      "type": "counter",
+      "contains": "default",
+      "values": {
+        "count": 1,
+        "rate": 3.2342909148037253
+      }
+    },
+    "checks": {
+      "type": "rate",
+      "contains": "default",
+      "values": {
+        "rate": 1,
+        "passes": 1,
+        "fails": 0
+      }
+    },
+    "iterations": {
+      "contains": "default",
+      "values": {
+        "count": 1,
+        "rate": 3.2342909148037253
+      },
+      "type": "counter"
+    },
+    "http_req_waiting": {
+      "contains": "time",
+      "values": {
+        "med": 301.587913,
+        "max": 301.587913,
+        "p(90)": 301.587913,
+        "p(95)": 301.587913,
+        "avg": 301.587913,
+        "min": 301.587913
+      },
+      "type": "trend"
+    },
+    "http_req_tls_handshaking": {
+      "type": "trend",
+      "contains": "time",
+      "values": {
+        "med": 4.302817,
+        "max": 4.302817,
+        "p(90)": 4.302817,
+        "p(95)": 4.302817,
+        "avg": 4.302817,
+        "min": 4.302817
+      }
+    },
+    "http_req_receiving": {
+      "type": "trend",
+      "contains": "time",
+      "values": {
+        "avg": 0.074481,
+        "min": 0.074481,
+        "med": 0.074481,
+        "max": 0.074481,
+        "p(90)": 0.074481,
+        "p(95)": 0.074481
+      }
+    },
+    "data_sent": {
+      "type": "counter",
+      "contains": "data",
+      "values": {
+        "count": 624,
+        "rate": 2018.1975308375247
+      }
+    },
+    "http_req_blocked": {
+      "type": "trend",
+      "contains": "time",
+      "values": {
+        "max": 6.913672,
+        "p(90)": 6.913672,
+        "p(95)": 6.913672,
+        "avg": 6.913672,
+        "min": 6.913672,
+        "med": 6.913672
+      }
+    }
+  },
+  "root_group": {
+    "groups": [],
+    "checks": [
+        {
+          "id": "8bd1f9d0c9f5bf81b6291d782c9abc73",
+          "passes": 1,
+          "fails": 0,
+          "name": "status es 202",
+          "path": "::status es 202"
+        }
+      ],
+    "name": "",
+    "path": "",
+    "id": "d41d8cd98f00b204e9800998ecf8427e"
+  }
+}

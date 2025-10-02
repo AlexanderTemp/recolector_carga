@@ -1,8 +1,7 @@
 import dotenv from "dotenv";
 import { validarFolders } from "./modules/ValidadorDirectorio";
 import { generarPNGs } from "./modules/GenerarCapturas";
-import { generarReporte } from "./modules/GenerarReporte";
-import { imageToBase64 } from "./helpers/images";
+import { generarReporteODT } from "./modules/GenerarReporte";
 
 dotenv.config();
 
@@ -15,10 +14,10 @@ const main = async () => {
 
   await generarPNGs(validos, `${ubicacionArchivo}/outputs/captures`);
 
-  await generarReporte(
+  await generarReporteODT(
     validos,
     `${ubicacionArchivo}/outputs/captures`,
-    `${ubicacionArchivo}/outputs/informe_generado_2.docx`,
+    `${ubicacionArchivo}/outputs/plantilla_carga_3.odt`,
     {
       nombreProyecto: "hola",
       fechaFin: "",
