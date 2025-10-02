@@ -13,10 +13,15 @@ interface Scenario {
 }
 
 const scenarios: Scenario[] = [
-  { id: "l1", vus: 1, duration: "15s" },
-  { id: "l2", vus: 2, duration: "15s" },
-  { id: "l3", vus: 3, duration: "15s" },
-  { id: "l4", vus: 4, duration: "15s" },
+  // { id: "k0", vus: 5, duration: "5m" },
+  // { id: "k2", vus: 9, duration: "5m" },
+  // { id: "l0", vus: 10, duration: "5m" },
+  { id: "l1", vus: 20, duration: "5m" },
+  { id: "l2", vus: 50, duration: "5m" },
+  { id: "l3", vus: 100, duration: "5m" },
+  { id: "l4", vus: 200, duration: "5m" },
+  { id: "l5", vus: 500, duration: "10m" },
+  { id: "l6", vus: 1000, duration: "10m" },
 ];
 
 const scriptsDir = process.env.K6_SCRIPTS_PATH || "./scripts";
