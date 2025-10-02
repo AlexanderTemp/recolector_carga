@@ -54,6 +54,7 @@ async function runScenarios() {
         "k6",
         [
           "run",
+          "--summary-mode=full",
           "--env",
           `SCENARIO=${scenarioName}`,
           "--env",
