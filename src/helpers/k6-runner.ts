@@ -13,6 +13,7 @@ interface Scenario {
 }
 
 const scenarios: Scenario[] = [
+  // { id: "test", vus: 1, duration: "5s" },
   // { id: "k0", vus: 5, duration: "5m" },
   // { id: "k2", vus: 9, duration: "5m" },
   // { id: "l0", vus: 10, duration: "5m" },

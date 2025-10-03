@@ -19,7 +19,7 @@ export default function () {
   };
 
   const res = http.get(
-    `${ENV.BACKEND_URL}/reclamos/publicos/1eb7e3ae-afe5-41e3-b6f5-db55e4b68118/adjuntos/7b6d97f1-cb1d-4176-8156-49be5d23c786`
+    `${ENV.BACKEND_URL}/reclamos/publicos/c9ea6039-5102-4a2b-99cc-761f7a683c41/respuesta-definitiva-operador`
   );
 
   check(res, { "estado es 200": (r) => r.status === 200 });
