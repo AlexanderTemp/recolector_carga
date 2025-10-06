@@ -1,6 +1,5 @@
 import dotenv from "dotenv";
 import fs from "fs";
-
 import path from "path";
 import { FolderJsons } from "../types/global";
 import * as docx from "docx";
@@ -34,9 +33,10 @@ interface DataReporte {
 }
 
 function evaluarMetrica(metrica: string, valor: number): string {
-  const umbrales: {
-    [key: string]: { bueno: number; regular: number; malo: number };
-  } = {
+  const umbrales: Record<
+    string,
+    { bueno: number; regular: number; malo: number }
+  > = {
     iteraciones: { bueno: 1000, regular: 500, malo: 100 },
     http_reqs: { bueno: 1000, regular: 500, malo: 100 },
     http_req_duration: { bueno: 1000, regular: 3000, malo: 5000 },
@@ -125,20 +125,68 @@ export async function generarReporteDOCX(
   outputFile: string
 ) {
   const sections: docx.ISectionOptions[] = [];
-
   const pageWidthTwips = 12240;
   const pageMargin = 720;
   const usableWidth = pageWidthTwips - pageMargin * 2;
-
   const children: docx.Paragraph[] = [];
 
+  let pos_prueba = 0;
+  let pos_carga = 0;
+
   for (const [folderName, folderData] of Object.entries(validJsons)) {
+    pos_prueba++;
+    pos_carga++;
+
+    children.push(
+      new docx.Paragraph({
+        spacing: { after: 200, before: 200 },
+        children: [
+          new docx.TextRun({
+            text: `3.${pos_prueba} ${folderName.replace(/_+/g, " ").trim()}`,
+            allCaps: true,
+            size: 32,
+            font: "Arial",
+          }),
+        ],
+      })
+    );
+
+    children.push(
+      new docx.Paragraph({
+        spacing: { after: 200, before: 200 },
+        children: [
+          new docx.TextRun({
+            text: `${folderData.urls.join(", ")}`,
+            size: 24,
+            font: "Arial",
+          }),
+        ],
+      })
+    );
+
+    let segmentoPrueba = `3.${pos_carga}.${pos_prueba}`;
+    children.push(
+      new docx.Paragraph({
+        spacing: { after: 200, before: 200 },
+        children: [
+          new docx.TextRun({
+            text: `${segmentoPrueba} Pruebas de carga`,
+            bold: true,
+            size: 28,
+            font: "Arial",
+          }),
+        ],
+      })
+    );
+
+    let pos = 0;
+
     for (const jsonFile of folderData.jsons) {
+      pos++;
       try {
         const raw = fs.readFileSync(jsonFile.absolutePath, "utf8");
         const data = JSON.parse(raw);
         const metrics = data.metrics || {};
-
         const { vus, tiempo } = extraerInfoVusYTiempo(metrics, data);
 
         const imageName = jsonFile.name.replace(".json", ".png");
@@ -195,24 +243,10 @@ export async function generarReporteDOCX(
 
         children.push(
           new docx.Paragraph({
-            spacing: { after: 100 },
-            children: [
-              new docx.TextRun({
-                text: `Prueba: ${folderName}`,
-                bold: true,
-                size: 28,
-                font: "Arial",
-              }),
-            ],
-          })
-        );
-
-        children.push(
-          new docx.Paragraph({
             spacing: { after: 50 },
             children: [
               new docx.TextRun({
-                text: `Escenario: ${jsonFile.name.replace(".json", "")}`,
+                text: `${segmentoPrueba}.${pos} Escenario ${pos}`,
                 bold: true,
                 size: 26,
                 font: "Arial",
@@ -250,6 +284,7 @@ export async function generarReporteDOCX(
               new docx.TextRun({
                 text: `${vus} / ${tiempo}`,
                 font: "Arial",
+                size: 24,
               }),
             ],
             alignment: docx.AlignmentType.CENTER,
@@ -296,16 +331,11 @@ export async function generarReporteDOCX(
             descripcionHttpReqBlocked
           )
         );
+
         children.push(
           new docx.Paragraph({
             spacing: { after: 200 },
-            children: [
-              new docx.TextRun({
-                text: "",
-                font: "Arial",
-                size: 24,
-              }),
-            ],
+            children: [new docx.TextRun({ text: "", font: "Arial", size: 24 })],
           })
         );
       } catch (err) {
@@ -313,118 +343,66 @@ export async function generarReporteDOCX(
       }
     }
 
+    children.push(new docx.Paragraph({ spacing: { after: 500, before: 500 } }));
+  }
+
+  children.push(
+    new docx.Paragraph({
+      spacing: { before: 500, after: 300 },
+      children: [
+        new docx.TextRun({
+          text: "RESUMEN DE GRÁFICAS GENERALES",
+          bold: true,
+          allCaps: true,
+          size: 32,
+          font: "Arial",
+        }),
+      ],
+    })
+  );
+
+  for (const [folderName] of Object.entries(validJsons)) {
     const graficaPath = path.join(
       reportesDir,
       folderName,
       "reporte_barras_k6.png"
     );
-    if (fs.existsSync(graficaPath)) {
-      const buffer = fs.readFileSync(graficaPath);
-      const metadata = await sharp(buffer).metadata();
-      const maxWidth = 600;
-      const scale = metadata.width ? Math.min(1, maxWidth / metadata.width) : 1;
-      const width = metadata.width
-        ? Math.floor(metadata.width * scale)
-        : maxWidth;
-      const height = metadata.height
-        ? Math.floor(metadata.height * scale)
-        : 200;
+    if (!fs.existsSync(graficaPath)) continue;
 
-      const graficaRun = new docx.ImageRun({
-        data: buffer,
-        transformation: { width, height },
-        type: "png",
-      });
+    const buffer = fs.readFileSync(graficaPath);
+    const metadata = await sharp(buffer).metadata();
+    const maxWidth = 600;
+    const scale = metadata.width ? Math.min(1, maxWidth / metadata.width) : 1;
+    const width = metadata.width
+      ? Math.floor(metadata.width * scale)
+      : maxWidth;
+    const height = metadata.height ? Math.floor(metadata.height * scale) : 200;
 
-      children.push(
-        new docx.Paragraph({
-          children: [
-            new docx.Table({
-              rows: [
-                new docx.TableRow({
-                  children: [
-                    new docx.TableCell({
-                      children: [
-                        new docx.Paragraph({
-                          alignment: docx.AlignmentType.CENTER,
-                          spacing: { after: 200, before: 200 },
-                          children: [
-                            new docx.TextRun({
-                              text: "ANÁLISIS DE RESULTADOS",
-                              font: "Arial",
-                              size: 24,
-                              bold: true,
-                            }),
-                          ],
-                        }),
-                      ],
-                      shading: { fill: "E0E0E0" },
-                    }),
-                  ],
-                }),
-                new docx.TableRow({
-                  children: [
-                    new docx.TableCell({
-                      children: [
-                        new docx.Paragraph({
-                          children: [graficaRun],
-                          spacing: { after: 300, before: 300 },
-                          alignment: docx.AlignmentType.CENTER,
-                        }),
-                      ],
-                    }),
-                  ],
-                }),
-                new docx.TableRow({
-                  children: [
-                    new docx.TableCell({
-                      children: [
-                        new docx.Paragraph({
-                          spacing: { after: 200, before: 200 },
-                          children: [
-                            new docx.TextRun({
-                              text: "DESCRIPCIÓN",
-                              font: "Arial",
-                              size: 24,
-                              bold: true,
-                            }),
-                          ],
-                          alignment: docx.AlignmentType.CENTER,
-                        }),
-                      ],
-                      shading: { fill: "E0E0E0" },
-                    }),
-                  ],
-                }),
-                new docx.TableRow({
-                  children: [
-                    new docx.TableCell({
-                      children: [
-                        new docx.Paragraph({
-                          spacing: { after: 200, before: 200 },
-                          children: [
-                            new docx.TextRun({
-                              text: "----",
-                              font: "Arial",
-                              size: 24,
-                            }),
-                          ],
-                        }),
-                      ],
-                    }),
-                  ],
-                }),
-              ],
-              width: { size: 100, type: docx.WidthType.PERCENTAGE },
-            }),
-          ],
-        })
-      );
-    }
+    const graficaRun = new docx.ImageRun({
+      data: buffer,
+      transformation: { width, height },
+      type: "png",
+    });
 
     children.push(
       new docx.Paragraph({
-        spacing: { after: 500, before: 500 },
+        spacing: { before: 300, after: 200 },
+        children: [
+          new docx.TextRun({
+            text: folderName.replace(/_+/g, " ").trim(),
+            bold: true,
+            size: 28,
+            font: "Arial",
+          }),
+        ],
+      })
+    );
+
+    children.push(
+      new docx.Paragraph({
+        children: [graficaRun],
+        alignment: docx.AlignmentType.CENTER,
+        spacing: { after: 400 },
       })
     );
   }
@@ -445,10 +423,7 @@ export async function generarReporteDOCX(
 
   const doc = new docx.Document({ sections });
   const outputDir = path.dirname(outputFile);
-  if (!fs.existsSync(outputDir)) {
-    fs.mkdirSync(outputDir, { recursive: true });
-  }
-
+  if (!fs.existsSync(outputDir)) fs.mkdirSync(outputDir, { recursive: true });
   const docBuffer = await docx.Packer.toBuffer(doc);
   fs.writeFileSync(outputFile, docBuffer);
 

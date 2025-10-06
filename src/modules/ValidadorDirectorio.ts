@@ -3,6 +3,9 @@ import path from "path";
 import { validarSummaryManual } from "./ValidadorEstructura";
 import { FolderJsons, JsonFile } from "../types/global";
 
+const UUID_REGEX =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
 function obtenerSubfolders(dir: string): string[] {
   const entries: Dirent[] = fs.readdirSync(dir, { withFileTypes: true });
   return entries
@@ -17,7 +20,58 @@ function obtenerJsons(folderPath: string): string[] {
     .map((entry) => entry.name);
 }
 
-export function validarFolders(baseDir: string): FolderJsons {
+function normalizeUrl(rawUrl: string): string {
+  if (!rawUrl) return "";
+
+  rawUrl = rawUrl.trim();
+
+  rawUrl = rawUrl.replace(/^`?\$\{[^}]+\}`?/, "");
+
+  rawUrl = rawUrl.replace(/^`|`$/g, "");
+
+  return rawUrl
+    .split("/")
+    .map((seg) => {
+      if (!seg) return "";
+
+      if (seg.match(/^\$\{[^}]+\}$/)) return ":UUID";
+
+      if (UUID_REGEX.test(seg)) return ":UUID";
+
+      if (seg.match(/^\d+$/)) return ":ID";
+
+      return seg;
+    })
+    .filter(Boolean)
+    .join("/");
+}
+
+function extractUrlsFromK6Script(scriptPath: string): string[] {
+  const content = fs.readFileSync(scriptPath, "utf-8");
+
+  const regex = /http\.(get|post|put|patch|del|delete)\(\s*([^,)\n]+)/g;
+
+  const results: string[] = [];
+  let match;
+  while ((match = regex.exec(content)) !== null) {
+    const method = match[1].toUpperCase();
+    let url = match[2].trim();
+
+    if (
+      (url.startsWith('"') && url.endsWith('"')) ||
+      (url.startsWith("'") && url.endsWith("'"))
+    ) {
+      url = url.slice(1, -1);
+    }
+
+    const normalized = normalizeUrl(url);
+    results.push(`${method} /${normalized}`);
+  }
+
+  return results;
+}
+
+export function validarFolders(baseDir: string, k6Dir: string): FolderJsons {
   const resultado: FolderJsons = {};
 
   const folders: string[] = obtenerSubfolders(baseDir);
@@ -25,6 +79,10 @@ export function validarFolders(baseDir: string): FolderJsons {
   for (const folderName of folders) {
     const folderPath: string = path.resolve(baseDir, folderName);
     const jsonFiles: string[] = obtenerJsons(folderPath);
+
+    if (!resultado[folderName]) {
+      resultado[folderName] = { folderName, jsons: [], urls: [] };
+    }
 
     for (const file of jsonFiles) {
       const filePath: string = path.join(folderPath, file);
@@ -35,14 +93,21 @@ export function validarFolders(baseDir: string): FolderJsons {
         continue;
       }
 
-      if (!resultado[folderName]) {
-        resultado[folderName] = { folderName, jsons: [] };
-      }
-
       resultado[folderName].jsons.push({
         name: file,
         absolutePath: filePath,
       });
+    }
+
+    const k6ScriptPath = path.join(k6Dir, `${folderName}.js`);
+    if (fs.existsSync(k6ScriptPath)) {
+      const urls = extractUrlsFromK6Script(k6ScriptPath);
+      resultado[folderName].urls = urls;
+    } else {
+      console.warn(
+        `⚠️ No se encontró script K6 para la carpeta: ${folderName}`
+      );
+      resultado[folderName].urls = [];
     }
   }
 

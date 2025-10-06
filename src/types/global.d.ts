@@ -5,6 +5,7 @@ export interface JsonFile {
 
 export interface FolderContent {
   folderName: string;
+  urls: string[];
   jsons: JsonFile[];
 }
 
