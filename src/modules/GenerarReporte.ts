@@ -53,57 +53,106 @@ function evaluarMetrica(metrica: string, valor: number): string {
   return "Rendimiento crítico - requiere atención inmediata";
 }
 
-function generarTextoIteraciones(metrics: any): string {
+function generarTextoIteraciones(metrics: any): {
+  texto: string;
+  evaluacion: string;
+} {
   const iterations = metrics.iterations?.values;
-  if (!iterations) return "No se encontraron datos de iteraciones";
+  if (!iterations)
+    return {
+      texto: "No se encontraron datos de iteraciones",
+      evaluacion: "Sin datos",
+    };
+
   const count = iterations.count || 0;
   const rate = iterations.rate || 0;
   const interrupted = metrics.iteration_duration?.values?.count
     ? Math.max(0, (metrics.vus_max?.values?.max || 0) - count)
     : 0;
+
   const evaluacion = evaluarMetrica("iteraciones", count);
   const evaluacionTasa = evaluarMetrica("tasa_iteraciones", rate);
-  return `Se realizaron ${count} iteraciones con tasa de ${rate.toFixed(
+
+  const texto = `El cual nos indica que se realizaron ${count} iteraciones (flujos finalizados) con una tasa de ${rate.toFixed(
     2
-  )} iteraciones/s. Iteraciones interrumpidas: ${interrupted}. ${evaluacion}. Tasa: ${evaluacionTasa.toLowerCase()}.`;
+  )} iteraciones por segundo, también nos indica el número de iteraciones interrumpidas (${interrupted}).`;
+
+  return { texto, evaluacion };
 }
 
-function generarTextoHttpReqs(metrics: any): string {
+function generarTextoHttpReqs(metrics: any): {
+  texto: string;
+  evaluacion: string;
+} {
   const httpReqs = metrics.http_reqs?.values;
-  if (!httpReqs) return "No se encontraron datos de solicitudes HTTP";
+  if (!httpReqs)
+    return {
+      texto: "No se encontraron datos de solicitudes HTTP",
+      evaluacion: "Sin datos",
+    };
+
   const count = httpReqs.count || 0;
   const rate = httpReqs.rate || 0;
   const failed = metrics.http_req_failed?.values?.passes || 0;
   const successRate =
     count > 0 ? (((count - failed) / count) * 100).toFixed(2) : 0;
+
   const evaluacion = evaluarMetrica("http_reqs", count);
   const evaluacionTasa = evaluarMetrica("tasa_http_reqs", rate);
-  return `Solicitudes realizadas: ${count} (tasa: ${rate.toFixed(
+
+  const texto = `Este parámetro nos indica el número de solicitudes realizadas (${count}) con una tasa de ${rate.toFixed(
     2
-  )}/s). Éxito: ${successRate}%. ${evaluacion}. Tasa: ${evaluacionTasa.toLowerCase()}.`;
+  )} solicitudes por segundo.`;
+
+  return { texto, evaluacion };
 }
 
-function generarTextoHttpReqDuration(metrics: any): string {
+function generarTextoHttpReqDuration(metrics: any): {
+  texto: string;
+  evaluacion: string;
+} {
   const duration = metrics.http_req_duration?.values;
-  if (!duration) return "No se encontraron datos de duración de solicitudes";
+  if (!duration)
+    return {
+      texto: "No se encontraron datos de duración de solicitudes",
+      evaluacion: "Sin datos",
+    };
+
   const avg = duration.avg || 0;
   const p95 = duration["p(95)"] || 0;
   const max = duration.max || 0;
+
   const evaluacion = evaluarMetrica("http_req_duration", avg);
-  return `Tiempo promedio: ${(avg / 1000).toFixed(2)}s, P95: ${(
-    p95 / 1000
-  ).toFixed(2)}s, máximo: ${(max / 1000).toFixed(2)}s. ${evaluacion}.`;
+
+  const texto = `Este parámetro nos indica el tiempo estimado de duración de cada petición, teniendo como resultados un tiempo promedio de ${(
+    avg / 1000
+  ).toFixed(2)}s, un P95 de ${(p95 / 1000).toFixed(2)}s y un máximo de ${(
+    max / 1000
+  ).toFixed(2)}s.`;
+
+  return { texto, evaluacion };
 }
 
-function generarTextoHttpReqBlocked(metrics: any): string {
+function generarTextoHttpReqBlocked(metrics: any): {
+  texto: string;
+  evaluacion: string;
+} {
   const blocked = metrics.http_req_blocked?.values;
-  if (!blocked) return "No se encontraron datos de solicitudes bloqueadas";
+  if (!blocked)
+    return {
+      texto: "No se encontraron datos de solicitudes bloqueadas",
+      evaluacion: "Sin datos",
+    };
+
   const avg = blocked.avg || 0;
   const max = blocked.max || 0;
   const evaluacion = evaluarMetrica("http_req_blocked", avg);
-  return `Promedio bloqueado: ${avg.toFixed(2)}ms, máximo: ${max.toFixed(
+
+  const texto = `Este parámetro nos indica el tiempo estimado de duración de las peticiones bloqueadas, teniendo como resultados un tiempo promedio de ${avg.toFixed(
     2
-  )}ms. ${evaluacion}.`;
+  )}ms y un máximo de ${max.toFixed(2)}ms.`;
+
+  return { texto, evaluacion };
 }
 
 function extraerInfoVusYTiempo(
@@ -216,11 +265,14 @@ export async function generarReporteDOCX(
             type: "png",
           });
         }
-
-        const descripcionIteraciones = generarTextoIteraciones(metrics);
-        const descripcionHttpReqs = generarTextoHttpReqs(metrics);
-        const descripcionHttpReqDuration = generarTextoHttpReqDuration(metrics);
-        const descripcionHttpReqBlocked = generarTextoHttpReqBlocked(metrics);
+        const { texto: textoIter, evaluacion: evalIter } =
+          generarTextoIteraciones(metrics);
+        const { texto: textoHttp, evaluacion: evalHttp } =
+          generarTextoHttpReqs(metrics);
+        const { texto: textoDur, evaluacion: evalDur } =
+          generarTextoHttpReqDuration(metrics);
+        const { texto: textoBloq, evaluacion: evalBloq } =
+          generarTextoHttpReqBlocked(metrics);
 
         const crearParrafoDescriptivo = (titulo: string, descripcion: string) =>
           new docx.Paragraph({
@@ -238,7 +290,7 @@ export async function generarReporteDOCX(
                 size: 24,
               }),
             ],
-            spacing: { after: 100 },
+            spacing: { after: 150, before: 150 },
           });
 
         children.push(
@@ -320,18 +372,20 @@ export async function generarReporteDOCX(
         );
 
         children.push(
-          crearParrafoDescriptivo("Iteraciones", descripcionIteraciones),
-          crearParrafoDescriptivo("Solicitudes HTTP", descripcionHttpReqs),
+          crearParrafoDescriptivo("Iteraciones", `(${evalIter}) ${textoIter}`),
+          crearParrafoDescriptivo(
+            "Solicitudes HTTP",
+            `(${evalHttp}) ${textoHttp}`
+          ),
           crearParrafoDescriptivo(
             "Duración de Solicitudes",
-            descripcionHttpReqDuration
+            `(${evalDur}) ${textoDur}`
           ),
           crearParrafoDescriptivo(
             "Solicitudes Bloqueadas",
-            descripcionHttpReqBlocked
+            `(${evalBloq}) ${textoBloq}`
           )
         );
-
         children.push(
           new docx.Paragraph({
             spacing: { after: 200 },
