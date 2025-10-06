@@ -2,14 +2,13 @@ import fs from "fs";
 import path from "path";
 import { createCanvas } from "canvas";
 import * as echarts from "echarts";
-import { FolderJsons, JsonFile } from "../types/global";
+import { FolderJsons } from "../types/global";
 
 const calcularPorcentajeExito = (data: any): number => {
   if (!data.metrics || !data.metrics.checks || !data.metrics.checks.values) {
     return 0;
   }
   const rate = data.metrics.checks.values.rate;
-
   return Math.floor(rate * 10000) / 100;
 };
 
@@ -49,8 +48,7 @@ export const generarReporteBarras = async (
           const data = JSON.parse(raw);
 
           nombres.push(jsonFile.name);
-          const porcentaje = calcularPorcentajeExito(data);
-          porcentajes.push(porcentaje);
+          porcentajes.push(calcularPorcentajeExito(data));
           metricasAdicionales.push(obtenerMetricasK6(data));
         } catch (err) {
           console.error(`❌ Error leyendo ${jsonFile.absolutePath}:`, err);
@@ -61,11 +59,17 @@ export const generarReporteBarras = async (
 
       const width = 1000;
       const height = 600;
-      const canvas = createCanvas(width, height);
+      const dpr = 2;
+
+      const canvas = createCanvas(width * dpr, height * dpr);
+      const ctx = canvas.getContext("2d");
+      ctx.scale(dpr, dpr);
+
       const chart = echarts.init(canvas as any, null, {
         renderer: "canvas",
         width,
         height,
+        devicePixelRatio: 2,
       });
 
       const getBarColor = (value: number) => {
@@ -79,25 +83,16 @@ export const generarReporteBarras = async (
       const option = {
         backgroundColor: "#ffffff",
         title: {
-          text: `📊 Reporte de Pruebas de Carga K6 - ${folderName}`,
+          text: `Reporte de Pruebas de Carga K6 - ${folderName}`,
           left: "center",
-          textStyle: {
-            color: "#1f2937",
-            fontSize: 18,
-            fontWeight: "bold",
-          },
+          textStyle: { color: "#1f2937", fontSize: 18, fontWeight: "bold" },
           subtext: "Éxito en Checks vs Peticiones HTTP",
-          subtextStyle: {
-            color: "#6b7280",
-            fontSize: 12,
-          },
+          subtextStyle: { color: "#6b7280", fontSize: 12 },
         },
         legend: {
           data: ["Éxito de Checks", "Meta 95%"],
           bottom: 40,
-          textStyle: {
-            color: "#4b5563",
-          },
+          textStyle: { color: "#4b5563" },
         },
         xAxis: {
           type: "category",
@@ -108,58 +103,30 @@ export const generarReporteBarras = async (
             fontSize: 11,
             fontWeight: "bold",
           },
-          axisLine: {
-            lineStyle: {
-              color: "#d1d5db",
-            },
-          },
-          axisTick: {
-            alignWithLabel: true,
-          },
+          axisLine: { lineStyle: { color: "#d1d5db" } },
+          axisTick: { alignWithLabel: true },
         },
         yAxis: [
           {
             type: "value",
             name: "Porcentaje de Éxito %",
-            nameTextStyle: {
-              color: "#4b5563",
-              fontWeight: "bold",
-            },
+            nameTextStyle: { color: "#4b5563", fontWeight: "bold" },
             min: 0,
             max: 100,
-            axisLabel: {
-              formatter: "{value}%",
-              color: "#4b5563",
-            },
-            axisLine: {
-              lineStyle: {
-                color: "#d1d5db",
-              },
-            },
-            splitLine: {
-              lineStyle: {
-                color: "#f3f4f6",
-                type: "solid",
-              },
-            },
+            axisLabel: { formatter: "{value}%", color: "#4b5563" },
+            axisLine: { lineStyle: { color: "#d1d5db" } },
+            splitLine: { lineStyle: { color: "#f3f4f6", type: "solid" } },
           },
           {
             type: "value",
             name: "Peticiones HTTP (miles)",
-            nameTextStyle: {
-              color: "#4b5563",
-              fontWeight: "bold",
-            },
+            nameTextStyle: { color: "#4b5563", fontWeight: "bold" },
             position: "right",
             axisLabel: {
-              formatter: (value: number) => `${(value / 1000).toFixed(0)}k`,
+              formatter: (v: number) => `${(v / 1000).toFixed(0)}k`,
               color: "#4b5563",
             },
-            axisLine: {
-              lineStyle: {
-                color: "#d1d5db",
-              },
-            },
+            axisLine: { lineStyle: { color: "#d1d5db" } },
           },
         ],
         grid: {
@@ -172,32 +139,25 @@ export const generarReporteBarras = async (
         series: [
           {
             name: "Éxito de Checks",
-            data: porcentajes.map((value, index) => ({
-              value: value,
-              itemStyle: {
-                color: getBarColor(value),
-              },
-            })),
             type: "bar",
+            data: porcentajes.map((v) => ({
+              value: v,
+              itemStyle: { color: getBarColor(v) },
+            })),
             barWidth: "50%",
             itemStyle: {
               borderRadius: [6, 6, 0, 0],
-              borderWidth: 0,
-              shadowColor: "rgba(0, 0, 0, 0.1)",
+              shadowColor: "rgba(0,0,0,0.1)",
               shadowBlur: 4,
               shadowOffsetY: 2,
             },
             emphasis: {
-              itemStyle: {
-                shadowBlur: 8,
-                shadowColor: "rgba(0, 0, 0, 0.2)",
-              },
+              itemStyle: { shadowBlur: 8, shadowColor: "rgba(0,0,0,0.2)" },
             },
             label: {
               show: true,
               position: "top",
-              formatter: (params: any) =>
-                `${Math.floor(params.value * 10) / 10}%`,
+              formatter: (p: any) => `${Math.floor(p.value * 10) / 10}%`,
               color: "#1f2937",
               fontWeight: "bold",
               fontSize: 10,
@@ -223,14 +183,7 @@ export const generarReporteBarras = async (
           },
           data: [{ yAxis: 95, name: "Meta" }],
         },
-        dataZoom: [
-          {
-            type: "inside",
-            xAxisIndex: 0,
-            start: 0,
-            end: 100,
-          },
-        ],
+        dataZoom: [{ type: "inside", xAxisIndex: 0, start: 0, end: 100 }],
       };
 
       chart.setOption(option);

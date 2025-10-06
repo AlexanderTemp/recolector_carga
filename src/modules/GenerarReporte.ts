@@ -421,6 +421,12 @@ export async function generarReporteDOCX(
         })
       );
     }
+
+    children.push(
+      new docx.Paragraph({
+        spacing: { after: 500, before: 500 },
+      })
+    );
   }
 
   sections.push({
