@@ -1,19 +1,12 @@
-// @ts-ignore
-import carboneSDK from "carbone-sdk-js";
 import dotenv from "dotenv";
 import fs from "fs";
+
 import path from "path";
 import { FolderJsons } from "../types/global";
-import { imageToBase64 } from "../helpers/images";
+import * as docx from "docx";
+import sharp from "sharp";
 
 dotenv.config();
-
-const _carboneService = carboneSDK(
-  process.env.CARBONE_TOKEN || "TU_ACCESS_TOKEN_AQUI"
-);
-
-const testImage =
-  "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAUAAAAFCAYAAACNbyblAAAAHElEQVQI12P4//8/w38GIAXDIBKE0DHxgljNBAAO9TXL0Y4OHwAAAABJRU5ErkJggg==";
 
 interface EscenarioReporte {
   orden: string;
@@ -117,98 +110,341 @@ function extraerInfoVusYTiempo(
   metrics: any,
   data: any
 ): { vus: string; tiempo: string } {
-  const vusMax = metrics.vus_max?.values?.max || 0;
-  const vus = metrics.vus?.values?.value || 0;
+  const vus = metrics.vus?.values?.max || 0;
   const testDurationMs = data.state?.testRunDurationMs || 0;
   const minutes = Math.floor(testDurationMs / 60000);
   const seconds = Math.floor((testDurationMs % 60000) / 1000);
-  const tiempo = minutes > 0 ? `${minutes}m ${seconds}s` : `${seconds}s`;
-  return { vus: `${vus} VUs (máx: ${vusMax})`, tiempo };
+  const tiempo = minutes > 0 ? `${minutes} minutos ` : `${seconds} segundos`;
+  return { vus: `${vus} usuarios virtuales`, tiempo };
 }
 
-export const generarReportePDF = async (
+export async function generarReporteDOCX(
   validJsons: FolderJsons,
   capturesDir: string,
-  outputFile: string,
-  options: {
-    nombreProyecto: string;
-    fechaInicio: string;
-    fechaFin: string;
-    equipo: string[];
-  }
-) => {
-  try {
-    const dataReporte: DataReporte = {
-      nombreProyecto: options.nombreProyecto,
-      fechaInicio: options.fechaInicio,
-      fechaFin: options.fechaFin,
-      equipo: options.equipo.map((n) => ({ nombre: n })),
-      pruebas: [],
-    };
+  reportesDir: string,
+  outputFile: string
+) {
+  const sections: docx.ISectionOptions[] = [];
 
-    for (const [folderName, folderData] of Object.entries(validJsons)) {
-      const prueba: PruebaReporte = {
-        nombre: folderName,
-        url: `Capturas de ${folderName}`,
-        escenarios: [],
-      };
+  const pageWidthTwips = 12240;
+  const pageMargin = 720;
+  const usableWidth = pageWidthTwips - pageMargin * 2;
 
-      for (const jsonFile of folderData.jsons) {
-        try {
-          const raw = fs.readFileSync(jsonFile.absolutePath, "utf8");
-          const data = JSON.parse(raw);
-          const metrics = data.metrics || {};
-          const { vus, tiempo } = extraerInfoVusYTiempo(metrics, data);
+  const children: docx.Paragraph[] = [];
 
-          prueba.escenarios.push({
-            orden: jsonFile.name.replace(".json", ""),
-            imagen: testImage, // reemplaza con imageToBase64(imagePath) si quieres imagen real
-            vus,
-            tiempo,
-            iteraciones: generarTextoIteraciones(metrics),
-            httpReqs: generarTextoHttpReqs(metrics),
-            httpReqDuration: generarTextoHttpReqDuration(metrics),
-            httpReqBlocked: generarTextoHttpReqBlocked(metrics),
+  for (const [folderName, folderData] of Object.entries(validJsons)) {
+    for (const jsonFile of folderData.jsons) {
+      try {
+        const raw = fs.readFileSync(jsonFile.absolutePath, "utf8");
+        const data = JSON.parse(raw);
+        const metrics = data.metrics || {};
+
+        const { vus, tiempo } = extraerInfoVusYTiempo(metrics, data);
+
+        const imageName = jsonFile.name.replace(".json", ".png");
+        const imagePath = path.join(capturesDir, folderName, imageName);
+
+        let imageRun: docx.ImageRun | null = null;
+
+        if (fs.existsSync(imagePath)) {
+          const buffer = fs.readFileSync(imagePath);
+          const metadata = await sharp(buffer).metadata();
+
+          const maxWidth = 600;
+          const scale = metadata.width
+            ? Math.min(1, maxWidth / metadata.width)
+            : 1;
+
+          const width = metadata.width
+            ? Math.floor(metadata.width * scale)
+            : maxWidth;
+          const height = metadata.height
+            ? Math.floor(metadata.height * scale)
+            : 200;
+
+          imageRun = new docx.ImageRun({
+            data: buffer,
+            transformation: { width, height },
+            type: "png",
           });
-        } catch (err) {
-          console.error(`❌ Error procesando ${jsonFile.absolutePath}:`, err);
         }
-      }
 
-      dataReporte.pruebas.push(prueba);
+        const descripcionIteraciones = generarTextoIteraciones(metrics);
+        const descripcionHttpReqs = generarTextoHttpReqs(metrics);
+        const descripcionHttpReqDuration = generarTextoHttpReqDuration(metrics);
+        const descripcionHttpReqBlocked = generarTextoHttpReqBlocked(metrics);
+
+        const crearParrafoDescriptivo = (titulo: string, descripcion: string) =>
+          new docx.Paragraph({
+            bullet: { level: 0 },
+            children: [
+              new docx.TextRun({
+                text: `${titulo}: `,
+                bold: true,
+                font: "Arial",
+                size: 24,
+              }),
+              new docx.TextRun({
+                text: descripcion,
+                font: "Arial",
+                size: 24,
+              }),
+            ],
+            spacing: { after: 100 },
+          });
+
+        children.push(
+          new docx.Paragraph({
+            spacing: { after: 100 },
+            children: [
+              new docx.TextRun({
+                text: `Prueba: ${folderName}`,
+                bold: true,
+                size: 28,
+                font: "Arial",
+              }),
+            ],
+          })
+        );
+
+        children.push(
+          new docx.Paragraph({
+            spacing: { after: 50 },
+            children: [
+              new docx.TextRun({
+                text: `Escenario: ${jsonFile.name.replace(".json", "")}`,
+                bold: true,
+                size: 26,
+                font: "Arial",
+              }),
+            ],
+          })
+        );
+
+        if (imageRun) {
+          children.push(
+            new docx.Paragraph({
+              children: [imageRun],
+              alignment: docx.AlignmentType.CENTER,
+              spacing: { after: 100 },
+            })
+          );
+        } else {
+          children.push(
+            new docx.Paragraph({
+              children: [
+                new docx.TextRun({
+                  text: "⚠️ Imagen no disponible",
+                  font: "Arial",
+                }),
+              ],
+              alignment: docx.AlignmentType.CENTER,
+              spacing: { after: 100 },
+            })
+          );
+        }
+
+        children.push(
+          new docx.Paragraph({
+            children: [
+              new docx.TextRun({
+                text: `${vus} / ${tiempo}`,
+                font: "Arial",
+              }),
+            ],
+            alignment: docx.AlignmentType.CENTER,
+            spacing: { after: 100 },
+          })
+        );
+
+        children.push(
+          new docx.Paragraph({
+            spacing: { before: 200, after: 50 },
+            children: [
+              new docx.TextRun({
+                text: "Análisis.",
+                bold: true,
+                font: "Arial",
+                size: 24,
+              }),
+            ],
+          })
+        );
+
+        children.push(
+          new docx.Paragraph({
+            spacing: { after: 200 },
+            children: [
+              new docx.TextRun({
+                text: "Al término de la ejecución de las pruebas de carga, las métricas más importantes son:",
+                font: "Arial",
+                size: 24,
+              }),
+            ],
+          })
+        );
+
+        children.push(
+          crearParrafoDescriptivo("Iteraciones", descripcionIteraciones),
+          crearParrafoDescriptivo("Solicitudes HTTP", descripcionHttpReqs),
+          crearParrafoDescriptivo(
+            "Duración de Solicitudes",
+            descripcionHttpReqDuration
+          ),
+          crearParrafoDescriptivo(
+            "Solicitudes Bloqueadas",
+            descripcionHttpReqBlocked
+          )
+        );
+        children.push(
+          new docx.Paragraph({
+            spacing: { after: 200 },
+            children: [
+              new docx.TextRun({
+                text: "",
+                font: "Arial",
+                size: 24,
+              }),
+            ],
+          })
+        );
+      } catch (err) {
+        console.error(`❌ Error procesando ${jsonFile.absolutePath}:`, err);
+      }
     }
 
-    console.log("📦 Enviando datos a Carbone Cloud...");
-
-    const { content } = await _carboneService.render(
-      "6ba923aa555cb10b68a201c159c03ccc10fa9f3fa9e0dd89c2af939707b526a6",
-      { data: dataReporte, convertTo: "pdf" }
+    const graficaPath = path.join(
+      reportesDir,
+      folderName,
+      "reporte_barras_k6.png"
     );
+    if (fs.existsSync(graficaPath)) {
+      const buffer = fs.readFileSync(graficaPath);
+      const metadata = await sharp(buffer).metadata();
+      const maxWidth = 600;
+      const scale = metadata.width ? Math.min(1, maxWidth / metadata.width) : 1;
+      const width = metadata.width
+        ? Math.floor(metadata.width * scale)
+        : maxWidth;
+      const height = metadata.height
+        ? Math.floor(metadata.height * scale)
+        : 200;
 
-    const outputDir = path.dirname(outputFile);
-    if (!fs.existsSync(outputDir)) fs.mkdirSync(outputDir, { recursive: true });
+      const graficaRun = new docx.ImageRun({
+        data: buffer,
+        transformation: { width, height },
+        type: "png",
+      });
 
-    const buffer = Buffer.from((await content.arrayBuffer?.()) || content);
-    fs.writeFileSync(outputFile, buffer);
-
-    console.log(`✅ Reporte PDF generado con éxito: ${outputFile}`);
-
-    const jsonPath = path.join(outputDir, "informe-generado.json");
-    fs.writeFileSync(jsonPath, JSON.stringify(dataReporte, null, 2), "utf8");
-    console.log(`📄 Datos guardados en: ${jsonPath}`);
-  } catch (error) {
-    console.error("❌ Error generando reporte PDF:", error);
+      children.push(
+        new docx.Paragraph({
+          children: [
+            new docx.Table({
+              rows: [
+                new docx.TableRow({
+                  children: [
+                    new docx.TableCell({
+                      children: [
+                        new docx.Paragraph({
+                          alignment: docx.AlignmentType.CENTER,
+                          spacing: { after: 200, before: 200 },
+                          children: [
+                            new docx.TextRun({
+                              text: "ANÁLISIS DE RESULTADOS",
+                              font: "Arial",
+                              size: 24,
+                              bold: true,
+                            }),
+                          ],
+                        }),
+                      ],
+                      shading: { fill: "E0E0E0" },
+                    }),
+                  ],
+                }),
+                new docx.TableRow({
+                  children: [
+                    new docx.TableCell({
+                      children: [
+                        new docx.Paragraph({
+                          children: [graficaRun],
+                          spacing: { after: 300, before: 300 },
+                          alignment: docx.AlignmentType.CENTER,
+                        }),
+                      ],
+                    }),
+                  ],
+                }),
+                new docx.TableRow({
+                  children: [
+                    new docx.TableCell({
+                      children: [
+                        new docx.Paragraph({
+                          spacing: { after: 200, before: 200 },
+                          children: [
+                            new docx.TextRun({
+                              text: "DESCRIPCIÓN",
+                              font: "Arial",
+                              size: 24,
+                              bold: true,
+                            }),
+                          ],
+                          alignment: docx.AlignmentType.CENTER,
+                        }),
+                      ],
+                      shading: { fill: "E0E0E0" },
+                    }),
+                  ],
+                }),
+                new docx.TableRow({
+                  children: [
+                    new docx.TableCell({
+                      children: [
+                        new docx.Paragraph({
+                          spacing: { after: 200, before: 200 },
+                          children: [
+                            new docx.TextRun({
+                              text: "----",
+                              font: "Arial",
+                              size: 24,
+                            }),
+                          ],
+                        }),
+                      ],
+                    }),
+                  ],
+                }),
+              ],
+              width: { size: 100, type: docx.WidthType.PERCENTAGE },
+            }),
+          ],
+        })
+      );
+    }
   }
-};
 
-export const validarPlantillaODT = (templatePath: string): boolean => {
-  if (!fs.existsSync(templatePath)) {
-    console.error(`❌ Plantilla no encontrada: ${templatePath}`);
-    return false;
+  sections.push({
+    properties: {
+      page: {
+        margin: {
+          top: pageMargin,
+          bottom: pageMargin,
+          left: pageMargin,
+          right: pageMargin,
+        },
+      },
+    },
+    children,
+  });
+
+  const doc = new docx.Document({ sections });
+  const outputDir = path.dirname(outputFile);
+  if (!fs.existsSync(outputDir)) {
+    fs.mkdirSync(outputDir, { recursive: true });
   }
-  if (!templatePath.endsWith(".odt")) {
-    console.error(`❌ La plantilla debe ser un archivo .odt: ${templatePath}`);
-    return false;
-  }
-  return true;
-};
+
+  const docBuffer = await docx.Packer.toBuffer(doc);
+  fs.writeFileSync(outputFile, docBuffer);
+
+  console.log(`✅ Reporte DOCX generado correctamente en: ${outputFile}`);
+}

@@ -4,9 +4,12 @@ import { generateTextSummary } from "./TextSummary";
 import { createCanvas, loadImage } from "canvas";
 import { FolderJsons, JsonFile } from "../types/global";
 
+type PNGQuality = "alta" | "media" | "baja";
+
 export const generarPNGs = async (
   validJsons: FolderJsons,
-  outputBaseDir: string
+  outputBaseDir: string,
+  quality: PNGQuality = "alta"
 ) => {
   if (!fs.existsSync(outputBaseDir))
     fs.mkdirSync(outputBaseDir, { recursive: true });
@@ -31,7 +34,8 @@ export const generarPNGs = async (
           folderOutput,
           jsonFile.name.replace(".json", ".png"),
           folderName,
-          jsonFile.name
+          jsonFile.name,
+          quality
         );
 
         console.log(
@@ -52,7 +56,8 @@ async function createK6StylePNG(
   outputDir: string,
   filename: string,
   folderName: string,
-  fileName: string
+  fileName: string,
+  quality: PNGQuality
 ) {
   const lines = text.split("\n");
 
@@ -61,7 +66,7 @@ async function createK6StylePNG(
   const padding = 20;
   const sectionSpacing = 6;
 
-  const ctx = createCanvas(1, 1).getContext("2d");
+  const ctx = createCanvas(1, 1).getContext("2d")!;
   ctx.font = `${fontSize}px 'Courier New', monospace`;
 
   let maxWidth = 0;
@@ -81,8 +86,13 @@ async function createK6StylePNG(
     infoHeight +
     sectionSpacing * 4;
 
-  const canvas = createCanvas(width, height);
-  const context = canvas.getContext("2d");
+  let scale = 2;
+  if (quality === "media") scale = 1.5;
+  else if (quality === "baja") scale = 1;
+
+  const canvas = createCanvas(width * scale, height * scale);
+  const context = canvas.getContext("2d")!;
+  context.scale(scale, scale);
 
   context.fillStyle = "#ffffff";
   context.fillRect(0, 0, width, height);
@@ -91,7 +101,6 @@ async function createK6StylePNG(
   context.textBaseline = "top";
 
   drawK6AsciiLogo(context, width, padding);
-
   drawFileInfo(context, width, padding + logoHeight + 10, folderName, fileName);
 
   let currentY = padding + logoHeight + infoHeight + sectionSpacing * 2;
@@ -101,13 +110,12 @@ async function createK6StylePNG(
       currentY += sectionSpacing;
       return;
     }
-
     drawANSIFormattedText(context, line, padding, currentY);
     currentY += lineHeight;
   });
 
   const pngBuffer = canvas.toBuffer("image/png", {
-    compressionLevel: 6,
+    compressionLevel: quality === "alta" ? 0 : quality === "media" ? 4 : 9,
   });
 
   fs.writeFileSync(path.join(outputDir, filename), pngBuffer);
