@@ -1,9 +1,19 @@
 // @ts-ignore
-import * as carbone from "carbone";
+import carboneSDK from "carbone-sdk-js";
+import dotenv from "dotenv";
 import fs from "fs";
 import path from "path";
 import { FolderJsons } from "../types/global";
 import { imageToBase64 } from "../helpers/images";
+
+dotenv.config();
+
+const _carboneService = carboneSDK(
+  process.env.CARBONE_TOKEN || "TU_ACCESS_TOKEN_AQUI"
+);
+
+const testImage =
+  "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAUAAAAFCAYAAACNbyblAAAAHElEQVQI12P4//8/w38GIAXDIBKE0DHxgljNBAAO9TXL0Y4OHwAAAABJRU5ErkJggg==";
 
 interface EscenarioReporte {
   orden: string;
@@ -116,7 +126,7 @@ function extraerInfoVusYTiempo(
   return { vus: `${vus} VUs (máx: ${vusMax})`, tiempo };
 }
 
-export const generarReporteODT = async (
+export const generarReportePDF = async (
   validJsons: FolderJsons,
   capturesDir: string,
   outputFile: string,
@@ -142,56 +152,52 @@ export const generarReporteODT = async (
         url: `Capturas de ${folderName}`,
         escenarios: [],
       };
+
       for (const jsonFile of folderData.jsons) {
         try {
           const raw = fs.readFileSync(jsonFile.absolutePath, "utf8");
           const data = JSON.parse(raw);
           const metrics = data.metrics || {};
-          const imageName = jsonFile.name.replace(".json", ".png");
-          const imagePath = path.join(capturesDir, folderName, imageName);
           const { vus, tiempo } = extraerInfoVusYTiempo(metrics, data);
 
-          const escenario: EscenarioReporte = {
+          prueba.escenarios.push({
             orden: jsonFile.name.replace(".json", ""),
-            imagen: imageToBase64(imagePath),
+            imagen: testImage, // reemplaza con imageToBase64(imagePath) si quieres imagen real
             vus,
             tiempo,
             iteraciones: generarTextoIteraciones(metrics),
             httpReqs: generarTextoHttpReqs(metrics),
             httpReqDuration: generarTextoHttpReqDuration(metrics),
             httpReqBlocked: generarTextoHttpReqBlocked(metrics),
-          };
-
-          prueba.escenarios.push(escenario);
-        } catch (error) {
-          console.error(`❌ Error procesando ${jsonFile.absolutePath}:`, error);
+          });
+        } catch (err) {
+          console.error(`❌ Error procesando ${jsonFile.absolutePath}:`, err);
         }
       }
+
       dataReporte.pruebas.push(prueba);
     }
 
-    const template = "./src/mocks/plantilla_carga_3.odt";
+    console.log("📦 Enviando datos a Carbone Cloud...");
 
-    carbone.render(template, dataReporte, function (err: any, result: any) {
-      if (err) {
-        console.error("Error generando reporte:", err);
-        return;
-      }
+    const { content } = await _carboneService.render(
+      "6ba923aa555cb10b68a201c159c03ccc10fa9f3fa9e0dd89c2af939707b526a6",
+      { data: dataReporte, convertTo: "pdf" }
+    );
 
-      const outputPath = outputFile.endsWith(".odt")
-        ? outputFile
-        : `${outputFile}/informe-generado.odt`;
+    const outputDir = path.dirname(outputFile);
+    if (!fs.existsSync(outputDir)) fs.mkdirSync(outputDir, { recursive: true });
 
-      const outputDir = path.dirname(outputPath);
-      if (!fs.existsSync(outputDir)) {
-        fs.mkdirSync(outputDir, { recursive: true });
-      }
+    const buffer = Buffer.from((await content.arrayBuffer?.()) || content);
+    fs.writeFileSync(outputFile, buffer);
 
-      fs.writeFileSync(outputPath, result);
-      console.log(`✅ Documento ODT generado: ${outputPath}`);
-    });
+    console.log(`✅ Reporte PDF generado con éxito: ${outputFile}`);
+
+    const jsonPath = path.join(outputDir, "informe-generado.json");
+    fs.writeFileSync(jsonPath, JSON.stringify(dataReporte, null, 2), "utf8");
+    console.log(`📄 Datos guardados en: ${jsonPath}`);
   } catch (error) {
-    console.error("❌ Error en generarReporteODT:", error);
+    console.error("❌ Error generando reporte PDF:", error);
   }
 };
 
