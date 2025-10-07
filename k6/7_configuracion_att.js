@@ -19,10 +19,10 @@ export default function () {
   };
 
   const res = http.get(
-    `${ENV.BACKEND_URL}/reclamos/publicos/00a5ea18-509d-48d8-936b-8e606983b7fd/adjuntos/5aaf0c6f-6e6a-495b-9bc9-fb9fe8da99aa`
+    `${ENV.BACKEND_URL}/reclamos/publicos/configuracion/att`
   );
 
-  check(res, { "estado es 200": (r) => r.status === 200 });
+  check(res, { "status es 200": (r) => r.status === 200 });
 
   if (res.status !== 200) {
     console.log("📣", res.status);
