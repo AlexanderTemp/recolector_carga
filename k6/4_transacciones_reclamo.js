@@ -19,7 +19,7 @@ export default function () {
   };
 
   const res = http.get(
-    `${ENV.BACKEND_URL}/reclamos/publicos/5883e958-c8c9-449b-9d3e-e5b192e4b097/transacciones`
+    `${ENV.BACKEND_URL}/reclamos/publicos/00a5ea18-509d-48d8-936b-8e606983b7fd/transacciones`
   );
 
   check(res, { "estado es 200": (r) => r.status === 200 });
