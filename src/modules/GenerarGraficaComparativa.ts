@@ -47,7 +47,19 @@ export const generarReporteBarras = async (
           const raw = fs.readFileSync(jsonFile.absolutePath, "utf-8");
           const data = JSON.parse(raw);
 
-          nombres.push(jsonFile.name.split(".json")[0] ?? "");
+          let nombre = jsonFile.name || "";
+          nombre = nombre.replace(/\.json$/i, ""); // quitar extensión
+
+          // Extraer solo la parte a partir de "vus" y todo lo que sigue
+          const vusRegex = /(\d+)\s*vus|vus\s*(\d+)/i;
+          const match = nombre.match(vusRegex);
+          if (match) {
+            // Si hay match, reconstruimos el nombre desde el número de vus hasta el final
+            const index = match.index ?? 0;
+            nombre = nombre.substring(index);
+          }
+
+          nombres.push(nombre);
           porcentajes.push(calcularPorcentajeExito(data));
           metricasAdicionales.push(obtenerMetricasK6(data));
         } catch (err) {
@@ -56,6 +68,28 @@ export const generarReporteBarras = async (
       }
 
       if (nombres.length === 0) continue;
+
+      // -------------------------
+      // Ordenar barras por número de VUS
+      // -------------------------
+      const combined = nombres.map((n, i) => ({
+        nombre: n,
+        porcentaje: porcentajes[i],
+        metricas: metricasAdicionales[i],
+      }));
+
+      combined.sort((a, b) => {
+        const regex = /(\d+)\s*vus|vus\s*(\d+)/i;
+        const aMatch = a.nombre.match(regex);
+        const bMatch = b.nombre.match(regex);
+        const aNum = aMatch ? parseInt(aMatch[1] ?? aMatch[2], 10) : 0;
+        const bNum = bMatch ? parseInt(bMatch[1] ?? bMatch[2], 10) : 0;
+        return aNum - bNum;
+      });
+
+      const nombresOrdenados = combined.map((c) => c.nombre);
+      const porcentajesOrdenados = combined.map((c) => c.porcentaje);
+      const metricasOrdenadas = combined.map((c) => c.metricas);
 
       const width = 1000;
       const height = 600;
@@ -91,7 +125,7 @@ export const generarReporteBarras = async (
         },
         xAxis: {
           type: "category",
-          data: nombres,
+          data: nombresOrdenados,
           axisLabel: {
             rotate: 30,
             color: "#4b5563",
@@ -132,7 +166,7 @@ export const generarReporteBarras = async (
             name: "Éxito de Checks",
             type: "bar",
             barMaxWidth: 50,
-            data: porcentajes.map((v) => ({
+            data: porcentajesOrdenados.map((v) => ({
               value: v,
               itemStyle: { color: getBarColor(v) },
             })),

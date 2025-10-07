@@ -48,27 +48,53 @@ function normalizeUrl(rawUrl: string): string {
 
 function extractUrlsFromK6Script(scriptPath: string): string[] {
   const content = fs.readFileSync(scriptPath, "utf-8");
+  const urls: string[] = [];
 
-  const regex = /http\.(get|post|put|patch|del|delete)\(\s*([^,)\n]+)/g;
+  
+  const varRegex =
+    /(const|let|var)\s+([a-zA-Z0-9_]+)\s*=\s*["'`](https?:\/\/[^"'`]+)["'`]/g;
+  const urlVars: Record<string, string> = {};
 
-  const results: string[] = [];
-  let match;
-  while ((match = regex.exec(content)) !== null) {
-    const method = match[1].toUpperCase();
-    let url = match[2].trim();
-
-    if (
-      (url.startsWith('"') && url.endsWith('"')) ||
-      (url.startsWith("'") && url.endsWith("'"))
-    ) {
-      url = url.slice(1, -1);
-    }
-
-    const normalized = normalizeUrl(url);
-    results.push(`${method} /${normalized}`);
+  let varMatch;
+  while ((varMatch = varRegex.exec(content)) !== null) {
+    const varName = varMatch[2];
+    const rawUrl = varMatch[3];
+    urlVars[varName] = normalizeUrl(rawUrl);
   }
 
-  return results;
+  
+  const httpRegex = /http\.(get|post|put|patch|del|delete)\(([^,)]+)/g;
+  let match;
+
+  while ((match = httpRegex.exec(content)) !== null) {
+    const method = match[1].toUpperCase();
+    let arg = match[2].trim();
+
+    if (
+      (arg.startsWith('"') && arg.endsWith('"')) ||
+      (arg.startsWith("'") && arg.endsWith("'")) ||
+      (arg.startsWith("`") && arg.endsWith("`"))
+    ) {
+      const url = arg.slice(1, -1);
+      urls.push(`${method} /${normalizeUrl(url)}`);
+      continue;
+    }
+
+    if (urlVars[arg]) {
+      urls.push(`${method} /${urlVars[arg]}`);
+      continue;
+    }
+
+    const templateRegex = /[`"']?\$\{[^}]+\}\/?([^`"']*)[`"']?/;
+    const tMatch = arg.match(templateRegex);
+    if (tMatch) {
+      const url = tMatch[1];
+      urls.push(`${method} /${normalizeUrl(url)}`);
+      continue;
+    }
+  }
+
+  return urls;
 }
 
 export function validarFolders(baseDir: string, k6Dir: string): FolderJsons {

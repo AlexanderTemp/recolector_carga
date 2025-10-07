@@ -15,6 +15,7 @@ const main = async () => {
     ubicacionK6Scripts
   );
 
+  console.log(validos)
   await generarPNGs(validos, `${ubicacionArchivo}/outputs/captures`, "media");
   await generarReporteBarras(validos, `${ubicacionArchivo}/outputs/reportes`);
 
