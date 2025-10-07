@@ -131,6 +131,7 @@ export const generarReporteBarras = async (
           {
             name: "Éxito de Checks",
             type: "bar",
+            barMaxWidth: 50,
             data: porcentajes.map((v) => ({
               value: v,
               itemStyle: { color: getBarColor(v) },
