@@ -47,7 +47,7 @@ export const generarReporteBarras = async (
           const raw = fs.readFileSync(jsonFile.absolutePath, "utf-8");
           const data = JSON.parse(raw);
 
-          nombres.push(jsonFile.name);
+          nombres.push(jsonFile.name.split(".json")[0] ?? "");
           porcentajes.push(calcularPorcentajeExito(data));
           metricasAdicionales.push(obtenerMetricasK6(data));
         } catch (err) {
@@ -86,13 +86,8 @@ export const generarReporteBarras = async (
           text: `Reporte de Pruebas de Carga K6 - ${folderName}`,
           left: "center",
           textStyle: { color: "#1f2937", fontSize: 18, fontWeight: "bold" },
-          subtext: "Éxito en Checks vs Peticiones HTTP",
+          subtext: "Porcentaje de éxito por escenario",
           subtextStyle: { color: "#6b7280", fontSize: 12 },
-        },
-        legend: {
-          data: ["Éxito de Checks", "Meta 95%"],
-          bottom: 40,
-          textStyle: { color: "#4b5563" },
         },
         xAxis: {
           type: "category",
@@ -110,27 +105,23 @@ export const generarReporteBarras = async (
           {
             type: "value",
             name: "Porcentaje de Éxito %",
-            nameTextStyle: { color: "#4b5563", fontWeight: "bold" },
+            nameTextStyle: {
+              color: "#4b5563",
+              fontWeight: "bold",
+              align: "center",
+            },
+            nameGap: 76,
+            nameLocation: "middle",
+            nameRotate: 90,
             min: 0,
             max: 100,
             axisLabel: { formatter: "{value}%", color: "#4b5563" },
             axisLine: { lineStyle: { color: "#d1d5db" } },
             splitLine: { lineStyle: { color: "#f3f4f6", type: "solid" } },
           },
-          {
-            type: "value",
-            name: "Peticiones HTTP (miles)",
-            nameTextStyle: { color: "#4b5563", fontWeight: "bold" },
-            position: "right",
-            axisLabel: {
-              formatter: (v: number) => `${(v / 1000).toFixed(0)}k`,
-              color: "#4b5563",
-            },
-            axisLine: { lineStyle: { color: "#d1d5db" } },
-          },
         ],
         grid: {
-          left: "5%",
+          left: "10%",
           right: "8%",
           bottom: "15%",
           top: "20%",
